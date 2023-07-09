@@ -7,9 +7,15 @@ Also helped with learning process of more python/tkinter.
 
 Project is in 2 formats
 
-Original was GUI and program logic in 1 file. Which is PlaylisterV1.pyw.
-Think there may still be some bugs I fixed in the new format. Otherwise the 2 formats do the same things
+--------------------------------------------------------------------------------------------------------------
+Original was GUI and program logic in 1 file.
 
+PlaylisterV1.pyw - both logic and GUI
+
+Think there may still be some bugs I fixed in the new format. Changed some code formating for readability, 
+Otherwise the 2 formats do the same things
+
+--------------------------------------------------------------------------------------------------------------
 New format seperates the GUI information and setup from the program logic.
 
 LogFile.py - program logic
