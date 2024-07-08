@@ -167,7 +167,6 @@ class App(tk.Tk):
         #print("commiting changes")
         # go through pending list of songs to add to the game, moving the folders over.
         for item in self.current_song_list_pending:
-            print(item[2])
             shutil.move(self.path_available_songs.get() + "//" + item[2], self.path_current_songs.get())
             self.current_song_list.append(item)
         self.current_song_list_pending = []
