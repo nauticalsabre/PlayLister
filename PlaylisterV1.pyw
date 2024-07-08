@@ -4,39 +4,33 @@ from tkinter.ttk import *
 import shutil
 import os
 
-# Last changes made
-#
-# changed to a commit system.
-# commit system allows a lot less constant file accessing. Even to move just 1 song.
-# adding/removing songs is shown in the lists, however if the program is closed
-# while songs are in their pending list. those songs are not moved.
-#
-# now has color.
-#
-# treeviews now have sorting
-# can sort artists A-Z/Z-A along with songs
-#
-# treeviews now behave like them with nodes.
-# 1 node to show what songs are currently in there locations.
-# 1 node for songs pending moving to a new folder.
-#
+import json
+
 # TODO
 # add status bar along bottom
 # maybe implement menu bar
-# maybe implement a file to store settings to store last paths used
+# maybe implement a file to store settings to store last paths used > Implimented
 
-
+program_settings = {}
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.geometry("1280x768")
         self.title("Clone Hero Playlist Manager")
+		
+        global program_settings
+        try:
+            with open("settings.json", "r") as settings_file:
+                program_settings = json.load(settings_file)
+        except FileNotFoundError:
+            print("No settings file found")
+
         
         self.path_current_songs           = tk.StringVar()
-        self.path_current_songs.set(r"No Path Selected")
+        self.path_current_songs.set(program_settings["current_path"])
         self.path_available_songs         = tk.StringVar()
-        self.path_available_songs.set(r"No Path Selected")
+        self.path_available_songs.set(program_settings["available_path"])
         
         self.current_song_list = []
         self.current_song_list_pending = []
@@ -60,8 +54,13 @@ class App(tk.Tk):
         # Create buttons
         self.button_add            = Button(self.frame_available_songlist, text="Add", command=self.AddSong, underline=0)
         self.button_remove         = Button(self.frame_current_songlist, text="Remove", command=self.RemoveSong, underline=1)
+        self.button_set_default_current = Button(self.frame_current_songlist, command=lambda: self.SetCurrentSongPathDefault(self.path_current_songs.get()), text="Default Path")
+        self.button_set_default_current["state"] = "disabled"
+        self.button_set_default_available = Button(self.frame_available_songlist, command=lambda: self.SetAvailablePathDefault(self.path_available_songs.get()), text="Default Path")
+        self.button_set_default_available["state"] = "disabled"
         self.button_open_available = Button(self.frame_available_songlist, text="Open selected song folder(s)", command=self.OpenSelectedAvailableFolders)
         self.button_open_current   = Button(self.frame_current_songlist, text="Open selected song folder(s)", command=self.OpenSelectedCurrentFolders)
+		
 
         # Current Treeview setup
         self.treeview_current_songlist = Treeview(self.frame_current_songlist)
@@ -108,15 +107,12 @@ class App(tk.Tk):
         self.available_pending_entry = self.treeview_available_songlist.insert(parent="", index="end", iid=1, values=("Pending",), open=True, tags=("parent_pending"))
 
 
-        self.Update_CurrentSongList_FromDirectory()
-        self.Update_AvailableSongList_FromDirectory()
-
-        self.Update_CurrentSongList_Entries()
-        self.Update_AvailableSongList_Entries()
+        
 
         # Pack widgets into their frames
         # setup treeview_current and it's button's grid
-        self.label_current_songs_path.grid(column=0, row=0, columnspan=2, sticky="ew")
+        self.button_set_default_current.grid(column=1, row=0, sticky="e", pady=5, ipadx=10)
+        self.label_current_songs_path.grid(column=0, row=0, sticky="w")
         self.treeview_current_songlist.grid(column=0, row=1, sticky="news", columnspan=2)
         self.scrollbar_treeview_current_songlist.grid(column=2, row=1, sticky="ns")
         self.button_remove.grid(column=0, row=2, sticky="ew", pady=5, padx=5)
@@ -131,7 +127,8 @@ class App(tk.Tk):
         self.frame_current_songlist.columnconfigure(2, weight=1)
 
         # setup treeview_available and it's button's grid
-        self.label_available_song_path.grid(column=0, row=0, columnspan=2, sticky="ew")
+        self.button_set_default_available.grid(column=1, row=0, sticky="e", pady=5, ipadx=10)
+        self.label_available_song_path.grid(column=0, row=0, sticky="w")
         self.treeview_available_songlist.grid(column=0, row=1, columnspan=2, sticky="news")
         self.scrollbar_treeview_available_songlist.grid(column=2, row=1, sticky="ns")
         self.button_add.grid(column=0, row=2, sticky="ew", pady=5, padx=5)
@@ -157,9 +154,12 @@ class App(tk.Tk):
         self.frame_main.rowconfigure(1, weight=100)
         self.frame_main.columnconfigure(0, weight=1)
         self.frame_main.columnconfigure(1, weight=1)
-
-        
-
+		
+        self.Update_CurrentSongList_FromDirectory()
+        self.Update_AvailableSongList_FromDirectory()
+	
+        self.Update_CurrentSongList_Entries()
+        self.Update_AvailableSongList_Entries()
 
     
 
@@ -167,13 +167,14 @@ class App(tk.Tk):
         #print("commiting changes")
         # go through pending list of songs to add to the game, moving the folders over.
         for item in self.current_song_list_pending:
-            shutil.move(self.path_available_songs.get() + "\\" + item[2], self.path_current_songs.get())
+            print(item[2])
+            shutil.move(self.path_available_songs.get() + "//" + item[2], self.path_current_songs.get())
             self.current_song_list.append(item)
         self.current_song_list_pending = []
         self.Update_CurrentSongList_Entries()
 
         for item in self.available_song_list_pending:
-            shutil.move(self.path_current_songs.get() + "\\" + item[2], self.path_available_songs.get())
+            shutil.move(self.path_current_songs.get() + "//" + item[2], self.path_available_songs.get())
             self.available_song_list.append(item)
         self.available_song_list_pending = []
         self.Update_AvailableSongList_Entries()
@@ -312,19 +313,39 @@ class App(tk.Tk):
         new_path = filedialog.askdirectory()
 
         if new_path != "":
+            self.button_set_default_current["state"] = "enabled"
+            self.button_set_default_current["text"] = "Set Default Path"
             self.current_song_list = []
             self.current_song_list_pending = []
             self.path_current_songs.set(new_path)
             self.Update_CurrentSongList_FromDirectory()
             self.Update_CurrentSongList_Entries()
+			
+    def SetCurrentSongPathDefault(self, path):
+        self.button_set_default_current["state"] = "disabled"
+        self.button_set_default_current["text"] = "Default Path"
+        program_settings["current_path"] = path
+        with open("settings.json", "w") as settings_file:
+            json.dump(program_settings, settings_file, indent=4)
     
     def ChangeAvailableSongsPath(self, event):
         new_path = filedialog.askdirectory()
 
         if new_path != "":
+            self.button_set_default_available["state"] = "enabled"
+            self.button_set_default_available["text"] = "Set Default Path"
+            self.available_song_list = []
+            self.available_song_list_pending = []
             self.path_available_songs.set(new_path)
             self.Update_AvailableSongList_FromDirectory()
             self.Update_AvailableSongList_Entries()
+
+    def SetAvailablePathDefault(self, path):
+        self.button_set_default_available["state"] = "disabled"
+        self.button_set_default_available["text"] = "Default Path"
+        program_settings["available_path"] = path
+        with open("settings.json", "w") as settings_file:
+            json.dump(program_settings, settings_file, indent=4)
 
 
     def Sort_CurrentTreeview_Artist(self):
