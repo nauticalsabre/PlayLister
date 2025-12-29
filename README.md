@@ -24,8 +24,8 @@ the chosen path to always be used on relaunch just __click set default__
 
 - if you want to quickly browse to a selected songs file location just select it/them and use __open file location__.
 
-- When you add/remove a song it is placed in it's respected pending list at the bottom. Pressing __enter__ will commit
-the transfers and clear the pending list.
+- When you add/remove a song it is placed in it's respected pending list at the bottom. commit the transfers and
+  clear the pending list.
 
 - You can organize treeview columns alphabetically by clicking on column headers.
 
@@ -36,6 +36,6 @@ the transfers and clear the pending list.
 
 # Features that should be added
 
-- [ ] Actual button to confirm song transfer
-- [ ] Safe guards to move files to not have hiccups when previewing song ingame that needs to be moved
-- [ ] Remove formating from song names in treeview for better sorting
+- [x] Remove formating from song names in treeview for better sorting (need to regex color codes in names though)
+- [ ] Reverse category sorting in Treeviews
+- [ ] re-add windows support since its just path stuff
