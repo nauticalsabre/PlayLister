@@ -9,10 +9,10 @@ import subprocess
 
 import json
 
-# 
-# LAST CHANGES
-# need to add reverse sorting and copy the sorting that the current song treeview
-# has and apply it to the available song treeview.
+# TODO
+# Add Windows support by switching raw pathing code to using Path module 
+# Add inverse column sorting
+# Expand search to return more than just the first hit
 
 
 app_path = os.path.abspath(__file__)
@@ -68,9 +68,6 @@ class App(tk.Tk):
         self.sort_availablelist_column_directions = [0, 0, 0, 0]
         self.options_groupsort = False
 
-        
-        #self.bind('a', self.AddSong)
-        #self.bind('r', self.RemoveSong)
 
         # Create Tk Interface
         # Create Frames
@@ -231,11 +228,6 @@ class App(tk.Tk):
 
         self.UpdateEntries(self.treeview_current_songlist, self.current_song_list, self.current_song_list_pending)
         self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
-
-
-
-
-
 
 
     def FavouriteSong(self):
