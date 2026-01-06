@@ -19,8 +19,6 @@ app_path = os.path.abspath(__file__)
 app_directory = os.path.dirname(app_path)
 os.chdir(app_directory)
 
-program_settings = {}
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
