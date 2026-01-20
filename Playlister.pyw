@@ -490,7 +490,6 @@ class App(tk.Tk):
 
         if len(items_selected_available_treeview) != 0:
             for item in items_selected_available_treeview:
-
                 OpenFileLoc(self.path_available_songs.get() + "/" + item['values'][-1])
 
     def OpenSelectedCurrentFolders(self):
