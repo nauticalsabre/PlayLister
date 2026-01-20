@@ -8,12 +8,7 @@ import os
 import subprocess
 
 import json
-
-# 
-# LAST CHANGES
-# need to add reverse sorting and copy the sorting that the current song treeview
-# has and apply it to the available song treeview.
-
+import re
 
 app_path = os.path.abspath(__file__)
 app_directory = os.path.dirname(app_path)
@@ -63,14 +58,9 @@ class App(tk.Tk):
         self.current_song_list_pending   = []
         self.available_song_list         = []
         self.available_song_list_pending = []
+        self.search_results              = []
 
-        self.sort_currentlist_column_directions   = [0, 0, 0, 0]
-        self.sort_availablelist_column_directions = [0, 0, 0, 0]
-        self.options_groupsort = False
-
-        
-        #self.bind('a', self.AddSong)
-        #self.bind('r', self.RemoveSong)
+        self.last_sort_category = ""
 
         # Create Tk Interface
         # Create Frames
@@ -114,11 +104,11 @@ class App(tk.Tk):
         self.button_set_default_current["state"]  = "disabled"
         self.treeview_current_songlist["columns"] = ["artist", "name", "genre", "duration", "favourite"]
         self.treeview_current_songlist.column("#0", width=20, stretch=False)
-        self.treeview_current_songlist.heading("artist", text="Artist", command=lambda: self.SortCurrentTreeView("artist"))
-        self.treeview_current_songlist.heading("name", text="Name", command=lambda: self.SortCurrentTreeView("name"))
-        self.treeview_current_songlist.heading("genre", text="Genre", command=lambda: self.SortCurrentTreeView("genre"))
-        self.treeview_current_songlist.heading("duration", text="Dur.", command=lambda: self.SortCurrentTreeView("length"))
-        self.treeview_current_songlist.heading("favourite", text="★")
+        self.treeview_current_songlist.heading("artist", text="Artist", command=lambda: self.SortTreeview("artist", "current"))
+        self.treeview_current_songlist.heading("name", text="Name", command=lambda: self.SortTreeview("name", "current"))
+        self.treeview_current_songlist.heading("genre", text="Genre", command=lambda: self.SortTreeview("genre", "current"))
+        self.treeview_current_songlist.heading("duration", text="Dur.", command=lambda: self.SortTreeview("length", "current"))
+        self.treeview_current_songlist.heading("favourite", text="★", command=lambda: self.SortTreeview("favourite", "current"))
         self.treeview_current_songlist.column("duration", width=10, anchor="center")
         self.treeview_current_songlist.column("favourite", width=5, anchor="center")
         self.treeview_current_songlist.column("genre", width=65)
@@ -129,6 +119,7 @@ class App(tk.Tk):
         self.treeview_current_songlist.tag_configure("odd_row", background="#EBF2F5", foreground="black")
         self.treeview_current_songlist.tag_configure("pending_odd_row", background="#E8E8E8", foreground="black")
         self.treeview_current_songlist.tag_configure("search_results", background="#DBBB12", foreground="black")
+        self.treeview_current_songlist.tag_configure("search_odd_row", background="#fffdcf", foreground="black")
         # self.treeview_current_songlist.tag_configure("favourite", background="black", foreground="white")
         # Link treeview_current scroll with treeview_scrollbar position
         self.treeview_current_songlist.configure(yscrollcommand=self.scrollbar_treeview_current_songlist.set)  # connect y position of treeview to scrollbar
@@ -146,10 +137,10 @@ class App(tk.Tk):
         self.button_set_default_available["state"]  = "disabled"
         self.treeview_available_songlist["columns"] = ["artist", "name", "genre", "duration"]
         self.treeview_available_songlist.column("#0", width=20, stretch=False)
-        self.treeview_available_songlist.heading("artist", text="Artist", command=lambda: self.SortAvailableTreeView(0))
-        self.treeview_available_songlist.heading("name", text="Name", command=lambda: self.SortAvailableTreeView(1))
-        self.treeview_available_songlist.heading("genre", text="Genre", command=lambda: self.SortAvailableTreeView(2))
-        self.treeview_available_songlist.heading("duration", text="Dur.", command=lambda: self.SortAvailableTreeView(3))
+        self.treeview_available_songlist.heading("artist", text="Artist", command=lambda: self.SortTreeview("artist", "available"))
+        self.treeview_available_songlist.heading("name", text="Name", command=lambda: self.SortTreeview("name", "available"))
+        self.treeview_available_songlist.heading("genre", text="Genre", command=lambda: self.SortTreeview("genre", "available"))
+        self.treeview_available_songlist.heading("duration", text="Dur.", command=lambda: self.SortTreeview("length", "available"))
         self.treeview_available_songlist.column("duration", width=10, anchor="center")
         self.treeview_available_songlist.column("genre", width=65)
         self.treeview_available_songlist.column("name", width=165)
@@ -158,6 +149,7 @@ class App(tk.Tk):
         self.treeview_available_songlist.tag_configure("parent_pending", background="#ABABAB", foreground="white")
         self.treeview_available_songlist.tag_configure("odd_row", background="#F5EAEB", foreground="black")
         self.treeview_available_songlist.tag_configure("pending_odd_row", background="#E8E8E8", foreground="black")
+        self.treeview_available_songlist.tag_configure("search_results", background="#DBBB12", foreground="black")
         # Link treeview_available scroll with treeview_scrollbar position
         self.treeview_available_songlist.configure(yscrollcommand=self.scrollbar_treeview_available_songlist.set)  # connect y position of treeview to scrollbar
         self.scrollbar_treeview_available_songlist.configure(command=self.treeview_available_songlist.yview)  # connect scrollbar position to treeview y position
@@ -263,7 +255,6 @@ class App(tk.Tk):
                 shutil.move(self.path_available_songs.get() + "/" + item["folder_path"], self.path_current_songs.get())
                 self.current_song_list.append(item)
             self.current_song_list_pending = []
-            # self.Update_CurrentSongList_Entries()
             self.UpdateEntries(self.treeview_current_songlist, self.current_song_list, self.current_song_list_pending)
         else:
             print("NO new songs to ADD to current playlist")
@@ -277,6 +268,28 @@ class App(tk.Tk):
         else:
             print("NO new songs to REMOVE from current playlist")
 
+
+    def SortTreeview(self, category, song_list):
+        reverse_sort = False
+        if category == self.last_sort_category:
+            reverse_sort = True
+            self.last_sort_category = ""
+        else:
+            self.last_sort_category = category
+
+        print(f"category {category} - treeview {song_list} - reverse sorting {reverse_sort}")
+
+        match song_list:
+            case "current":
+                temp = sorted(self.current_song_list, key=lambda item: item[category], reverse=reverse_sort if category != "favourite" else not reverse_sort)
+                self.current_song_list = temp
+                self.UpdateEntries(self.treeview_current_songlist, self.current_song_list, self.current_song_list_pending)
+            case "available":
+                temp = sorted(self.available_song_list, key=lambda item: item[category], reverse=reverse_sort)
+                self.available_song_list = temp
+                self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
+
+        
     def UpdateEntries(self, _treeview, _songlist, _pendingsonglist):
         for entry in _treeview.get_children("0"):
             _treeview.delete(entry)
@@ -341,11 +354,26 @@ class App(tk.Tk):
                         try:
                             for line in song_file:
                                 if any(art_match in line for art_match in song_artist_search_terms):
-                                    placeholder_song["artist"] = (line.split("=")[1].strip().lower())
+                                    raw_artist = line.split("=", maxsplit=1)[-1].strip().lower()
+                                    if re.search(r"<[^>]+>", raw_artist):
+                                        sanitized_artist = re.sub(r"<[^>]+>", "", raw_artist)
+                                        placeholder_song["artist"] = sanitized_artist
+                                    else:
+                                        placeholder_song["artist"] = raw_artist
                                 if any(nam_match in line for nam_match in song_name_search_terms):
-                                    placeholder_song["name"] = (line.split("=")[1].strip().lower())
+                                    raw_name = line.split("=", maxsplit=1)[-1].strip().lower()
+                                    if re.search(r"<[^>]+>", raw_name):
+                                        sanitized_name = re.sub(r"<[^>]+>", "", raw_name)
+                                        placeholder_song["name"] = sanitized_name
+                                    else:
+                                        placeholder_song["name"] = raw_name
                                 if any(gen_match in line for gen_match in song_genre_search_terms):
-                                    placeholder_song["genre"] = (line.split("=")[1].strip().lower())
+                                    raw_genre = line.split("=", maxsplit=1)[-1].strip().lower()
+                                    if re.search(r"<[^>]+>", raw_genre):
+                                        sanitized_genre = re.sub(r"<[^>]+>", "", raw_genre)
+                                        placeholder_song["genre"] = sanitized_genre
+                                    else:
+                                        placeholder_song["genre"] = raw_genre
                                 if any(gen_match in line for gen_match in song_dur_search_terms):
                                     placeholder_song["length"] = ConvertMilliToTime(line.split("=")[1].strip().lower())
                             if song_list == "available":
@@ -420,10 +448,21 @@ class App(tk.Tk):
             self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
 
     def SearchSongs(self, tree_to_search, category_to_search):
-        print(tree_to_search)
         good_results = False
         item_category_index = 1
-        search_results = []
+        treeview_to_search = ""
+        self.search_results = []
+        match tree_to_search:
+            case "current":
+                treeview_to_search = self.treeview_current_songlist
+            case "available":
+                treeview_to_search = self.treeview_available_songlist
+
+        if self.treeview_current_songlist.exists(3):
+            self.treeview_current_songlist.delete(3)
+        if self.treeview_available_songlist.exists(3):
+            self.treeview_available_songlist.delete(3)
+
         match category_to_search:
             case "artist":
                 item_category_index = 0
@@ -431,49 +470,34 @@ class App(tk.Tk):
                 item_category_index = 1
             case "genre":
                 item_category_index = 2
-            
-        match tree_to_search:
-            case "current":
-                for child_id in self.treeview_current_songlist.get_children(self.current_base_entry):
-                    treeview_item = self.treeview_current_songlist.item(child_id, "values")
-                    if self.search_entry_input.get().lower() in treeview_item[item_category_index].lower():
-                        if self.treeview_current_songlist.exists(3):
-                            self.treeview_current_songlist.delete(3)
-                        search_results.append(treeview_item)
-                        good_results = True
-            case "available":
-                for child_id in self.treeview_available_songlist.get_children(self.available_base_entry):
-                    treeview_item = self.treeview_available_songlist.item(child_id, "values")
-                    if self.search_entry_input.get().lower() in treeview_item[item_category_index].lower():
-                        self.treeview_available_songlist.selection_set(child_id)
-                        self.treeview_available_songlist.see(child_id)
-                        good_results = True
-            case _:
-                print("Given tree to search doesn't exist")
+
+        for child_id in treeview_to_search.get_children("0"):
+            treeview_item = treeview_to_search.item(child_id, "values")
+            if self.search_entry_input.get().lower() in treeview_item[item_category_index].lower():
+                self.search_results.append(treeview_item)
+                good_results = True
 
         if good_results == False and "<No Matches Found>" not in self.search_entry_input.get():
             self.search_entry_input.set(self.search_entry_input.get() + " <No Matches Found>")
-            if self.treeview_current_songlist.exists(3):
-                self.treeview_current_songlist.delete(3)
 
-        if good_results and tree_to_search == "current":
-            search_results_node = self.treeview_current_songlist.insert(parent="", index=0, iid=3, values=(f"Search Results - {len(search_results)} found",), open=True, tags=("search_results"))
-            for i in search_results:
-                self.treeview_current_songlist.insert(search_results_node, index="end", values=i)
+        if good_results:
+            search_results_node = treeview_to_search.insert(parent="", index=0, iid=3, values=(f"Search Results - {len(self.search_results)} found",), open=True, tags=("search_results"))
+            for i in self.search_results:
+                treeview_to_search.insert(search_results_node, index="end", values=i, tags=("search_odd_row") if self.search_results.index(i) % 2 == 0 else (""))
         
     def OpenSelectedAvailableFolders(self):
         items_selected_available_treeview = [self.treeview_available_songlist.item(i) for i in self.treeview_available_songlist.selection()]
 
         if len(items_selected_available_treeview) != 0:
             for item in items_selected_available_treeview:
-                OpenFileLoc(self.path_available_songs.get() + "/" + item['values'][4])
+                OpenFileLoc(self.path_available_songs.get() + "/" + item['values'][-1])
 
     def OpenSelectedCurrentFolders(self):
         items_selected_current_treeview = [self.treeview_current_songlist.item(i) for i in self.treeview_current_songlist.selection()]
 
         if len(items_selected_current_treeview) != 0:
             for item in items_selected_current_treeview:
-                OpenFileLoc(self.path_current_songs.get() + "/" + item['values'][4])
+                OpenFileLoc(self.path_current_songs.get() + "/" + item['values'][-1])
 
     def ChangeCurrentSongsPath(self):
         new_path = filedialog.askdirectory()
