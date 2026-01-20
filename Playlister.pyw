@@ -9,15 +9,17 @@ import subprocess
 
 import json
 
-# TODO
-# Add Windows support by switching raw pathing code to using Path module 
-# Add inverse column sorting
-# Expand search to return more than just the first hit
+# 
+# LAST CHANGES
+# need to add reverse sorting and copy the sorting that the current song treeview
+# has and apply it to the available song treeview.
 
 
 app_path = os.path.abspath(__file__)
 app_directory = os.path.dirname(app_path)
 os.chdir(app_directory)
+
+program_settings = {}
 
 class App(tk.Tk):
     def __init__(self):
@@ -66,6 +68,9 @@ class App(tk.Tk):
         self.sort_availablelist_column_directions = [0, 0, 0, 0]
         self.options_groupsort = False
 
+        
+        #self.bind('a', self.AddSong)
+        #self.bind('r', self.RemoveSong)
 
         # Create Tk Interface
         # Create Frames
@@ -123,6 +128,7 @@ class App(tk.Tk):
         self.treeview_current_songlist.tag_configure("parent_pending", background="#ABABAB", foreground="white")
         self.treeview_current_songlist.tag_configure("odd_row", background="#EBF2F5", foreground="black")
         self.treeview_current_songlist.tag_configure("pending_odd_row", background="#E8E8E8", foreground="black")
+        self.treeview_current_songlist.tag_configure("search_results", background="#DBBB12", foreground="black")
         # self.treeview_current_songlist.tag_configure("favourite", background="black", foreground="white")
         # Link treeview_current scroll with treeview_scrollbar position
         self.treeview_current_songlist.configure(yscrollcommand=self.scrollbar_treeview_current_songlist.set)  # connect y position of treeview to scrollbar
@@ -173,14 +179,14 @@ class App(tk.Tk):
         self.radiobutton_current_songs.grid(column=0, row=1, sticky="we", padx=5)
         self.radiobutton_available_songs.grid(column=1, row=1, sticky="we", padx=5)
         self.seperator_tools_one.grid(column=4, row=0, sticky="ns", rowspan=2, padx=10)
-        self.button_pick_current_path.grid(column=5, row=0, sticky="w", padx=5, pady=5)
+        self.button_pick_current_path.grid(column=5, row=0, sticky="w", padx=5, pady=5, ipadx=10)
         self.entry_current_song_path.grid(column=6, row=0, sticky="we")
         self.button_set_default_current.grid(column=7, row=0, sticky="e", pady=5, padx=10)
         
-        self.button_pick_available_path.grid(column=5, row=1, sticky="w", padx=5, pady=5)
+        self.button_pick_available_path.grid(column=5, row=1, sticky="w", padx=5, pady=5, ipadx=10)
         self.entry_available_song_path.grid(column=6, row=1, sticky="we")
         self.button_set_default_available.grid(column=7, row=1, sticky="e", pady=5, padx=10)
-        self.button_commit.grid(column=8, row=0, columnspan=2, rowspan=2, sticky="news", pady=5, padx=10)
+        self.button_commit.grid(column=8, row=0, columnspan=2, rowspan=2, sticky="news", pady=5, padx=5)
         
         # setup treeview_current and it's button's grid
         self.treeview_current_songlist.grid(column=0, row=0, sticky="news", columnspan=4)
@@ -250,7 +256,6 @@ class App(tk.Tk):
         with open("settings.json", "w") as settings_file:
             json.dump(program_settings, settings_file, indent=4)
 
-
     def CommitChanges(self):
         # go through pending list of songs to add to the game, moving the folders over.
         if len(self.current_song_list_pending) != 0:
@@ -271,7 +276,6 @@ class App(tk.Tk):
             self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
         else:
             print("NO new songs to REMOVE from current playlist")
-
 
     def UpdateEntries(self, _treeview, _songlist, _pendingsonglist):
         for entry in _treeview.get_children("0"):
@@ -306,7 +310,6 @@ class App(tk.Tk):
             if song_info[col_sort][0].lower() in alphabet:
                 parent_letter = alphabet.index(song_info[col_sort][0].lower())+2
             self.treeview_current_songlist.insert(parent_letter, index="end", values=song_info, tags=(("odd_row") if self.current_song_list.index(song_info) % 2 == 0 else ()))
-
 
     def UpdateSongListFromDirectory(self, song_list):
         playlist_directory = ""
@@ -362,7 +365,6 @@ class App(tk.Tk):
         except FileNotFoundError:
             print("Tried searching Directory for Available Songs-Invalid Path")
 
-
     def AddSong(self, event=None):
         items_selected = [list(self.treeview_available_songlist.item(i, 'values')) for i in self.treeview_available_songlist.selection()]
         if len(items_selected) != 0:
@@ -402,6 +404,14 @@ class App(tk.Tk):
                 if placeholder_song in self.current_song_list:
                     self.available_song_list_pending.append(placeholder_song)
                     self.current_song_list.remove(placeholder_song)
+                    if self.treeview_current_songlist.exists(3):
+                        for i in self.treeview_current_songlist.get_children(3):
+                            i_values = self.treeview_current_songlist.item(i, "values")
+                            i_values = list(i_values)
+                            if i_values == item:
+                                self.treeview_current_songlist.delete(i)
+                        if len(self.treeview_current_songlist.get_children(3)) == 0:
+                            self.treeview_current_songlist.delete(3)
                 else:
                     self.available_song_list.append(placeholder_song)
                     self.current_song_list_pending.remove(placeholder_song)
@@ -409,10 +419,11 @@ class App(tk.Tk):
             self.UpdateEntries(self.treeview_current_songlist, self.current_song_list, self.current_song_list_pending)
             self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
 
-
     def SearchSongs(self, tree_to_search, category_to_search):
+        print(tree_to_search)
         good_results = False
         item_category_index = 1
+        search_results = []
         match category_to_search:
             case "artist":
                 item_category_index = 0
@@ -421,13 +432,14 @@ class App(tk.Tk):
             case "genre":
                 item_category_index = 2
             
-        match self.Var_search_tree.get():
+        match tree_to_search:
             case "current":
                 for child_id in self.treeview_current_songlist.get_children(self.current_base_entry):
                     treeview_item = self.treeview_current_songlist.item(child_id, "values")
                     if self.search_entry_input.get().lower() in treeview_item[item_category_index].lower():
-                        self.treeview_current_songlist.selection_set(child_id)
-                        self.treeview_current_songlist.see(child_id)
+                        if self.treeview_current_songlist.exists(3):
+                            self.treeview_current_songlist.delete(3)
+                        search_results.append(treeview_item)
                         good_results = True
             case "available":
                 for child_id in self.treeview_available_songlist.get_children(self.available_base_entry):
@@ -441,10 +453,14 @@ class App(tk.Tk):
 
         if good_results == False and "<No Matches Found>" not in self.search_entry_input.get():
             self.search_entry_input.set(self.search_entry_input.get() + " <No Matches Found>")
+            if self.treeview_current_songlist.exists(3):
+                self.treeview_current_songlist.delete(3)
+
+        if good_results and tree_to_search == "current":
+            search_results_node = self.treeview_current_songlist.insert(parent="", index=0, iid=3, values=(f"Search Results - {len(search_results)} found",), open=True, tags=("search_results"))
+            for i in search_results:
+                self.treeview_current_songlist.insert(search_results_node, index="end", values=i)
         
-
-
-
     def OpenSelectedAvailableFolders(self):
         items_selected_available_treeview = [self.treeview_available_songlist.item(i) for i in self.treeview_available_songlist.selection()]
 
@@ -459,7 +475,6 @@ class App(tk.Tk):
             for item in items_selected_current_treeview:
                 OpenFileLoc(self.path_current_songs.get() + "/" + item['values'][4])
 
-
     def ChangeCurrentSongsPath(self):
         new_path = filedialog.askdirectory()
         if len(new_path) != 0:
@@ -471,8 +486,6 @@ class App(tk.Tk):
             self.UpdateSongListFromDirectory("current")
             self.UpdateEntries(self.treeview_current_songlist, self.current_song_list, self.current_song_list_pending)
 
-    
-
     def ChangeAvailableSongsPath(self):
         new_path = filedialog.askdirectory()
         if len(new_path) != 0:
@@ -483,7 +496,6 @@ class App(tk.Tk):
             self.path_available_songs.set(new_path)
             self.UpdateSongListFromDirectory("available")
             self.UpdateEntries(self.treeview_available_songlist, self.available_song_list, self.available_song_list_pending)
-
 
     """
         Button Pressed - Default Current Path
@@ -497,7 +509,6 @@ class App(tk.Tk):
         program_settings["current_path"] = path
         with open("settings.json", "w") as settings_file:
             json.dump(program_settings, settings_file, indent=4)
-
 
     """
         Button Pressed - Default Available Path
